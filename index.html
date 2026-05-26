@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Croquis Timer</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&family=Noto+Sans+JP:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    min-height: 100vh; background: #141417; color: #e4e4e7;
+    font-family: 'DM Sans', 'Noto Sans JP', sans-serif;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 24px 16px; overflow-x: hidden;
+  }
+  h1 { font-size: 22px; font-weight: 700; letter-spacing: 0.04em; color: #a3e635; margin-bottom: 2px; }
+  .sub { font-size: 12px; color: #71717a; margin-bottom: 24px; }
+  .card {
+    background: #1e1e23; border-radius: 16px; padding: 24px;
+    width: 100%; max-width: 520px; margin-bottom: 16px;
+  }
+  .label {
+    font-size: 11px; color: #71717a; text-transform: uppercase;
+    letter-spacing: 0.08em; margin-bottom: 8px; font-weight: 600;
+  }
+
+  /* ── Rounds Builder ── */
+  .round-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+  .round-row {
+    display: flex; align-items: center; gap: 8px;
+    background: #252529; border-radius: 10px; padding: 8px 12px;
+  }
+  .round-time {
+    padding: 5px 8px; border-radius: 6px; border: 1.5px solid #2a2a2f;
+    background: #141417; color: #e4e4e7; font-size: 13px;
+    font-family: inherit; outline: none; width: 110px;
+  }
+  .round-time:focus { border-color: #a3e635; }
+  .round-x { color: #71717a; font-size: 13px; }
+  .round-count {
+    width: 52px; padding: 5px 8px; border-radius: 6px;
+    border: 1.5px solid #2a2a2f; background: #141417; color: #e4e4e7;
+    font-size: 13px; font-family: inherit; outline: none; text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+  .round-count:focus { border-color: #a3e635; }
+  .round-unit { font-size: 12px; color: #71717a; }
+  .round-del {
+    margin-left: auto; background: none; border: none;
+    color: #52525b; font-size: 14px; cursor: pointer; padding: 4px 6px;
+    border-radius: 4px; font-family: inherit; line-height: 1;
+  }
+  .round-del:hover { color: #ef4444; background: rgba(239,68,68,0.12); }
+  .round-summary {
+    font-size: 12px; color: #52525b; margin-top: 4px; font-variant-numeric: tabular-nums;
+  }
+
+  /* ── Toggle ── */
+  .toggle-row { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .toggle {
+    width: 36px; height: 20px; border-radius: 10px; background: #2a2a2f;
+    position: relative; cursor: pointer; transition: background 0.2s; flex-shrink: 0;
+  }
+  .toggle.on { background: #a3e635; }
+  .toggle-dot {
+    width: 16px; height: 16px; border-radius: 50%; background: #fff;
+    position: absolute; top: 2px; left: 2px; transition: left 0.2s;
+  }
+  .toggle.on .toggle-dot { left: 18px; }
+  .toggle-label { font-size: 13px; color: #a1a1aa; }
+
+  /* ── Dropzone ── */
+  .dropzone {
+    border: 2px dashed #2a2a2f; border-radius: 12px;
+    padding: 32px 16px; text-align: center; cursor: pointer;
+    transition: border-color 0.2s; margin-bottom: 12px;
+  }
+  .dropzone:hover, .dropzone.dragover { border-color: #a3e635; }
+  .dropzone-icon { font-size: 28px; margin-bottom: 8px; }
+  .dropzone-text { font-size: 13px; color: #71717a; }
+
+  /* ── Buttons ── */
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .btn {
+    padding: 8px 16px; border-radius: 10px; border: none;
+    font-weight: 600; font-size: 13px; cursor: pointer;
+    transition: all 0.15s; font-family: inherit;
+  }
+  .btn-primary { background: #a3e635; color: #141417; }
+  .btn-primary:hover { background: #bef264; }
+  .btn-secondary { background: #2a2a2f; color: #a1a1aa; }
+  .btn-secondary:hover { background: #333; }
+  .btn-danger { background: rgba(239,68,68,0.12); color: #ef4444; border: 1px solid rgba(239,68,68,0.25); }
+  .btn-danger:hover { background: rgba(239,68,68,0.2); }
+
+  .img-count { font-size: 12px; color: #71717a; }
+  .thumbs { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+  .thumb {
+    width: 44px; height: 44px; object-fit: cover; border-radius: 6px;
+    border: 1px solid #2a2a2f;
+  }
+  .thumb-more {
+    width: 44px; height: 44px; border-radius: 6px; background: #2a2a2f;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; color: #71717a;
+  }
+
+  /* ── Saved Folders ── */
+  .folder-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
+  .folder-chip {
+    display: flex; align-items: center; gap: 5px;
+    padding: 6px 12px; border-radius: 8px; font-size: 13px;
+    background: #2a2a2f; color: #a1a1aa; cursor: pointer;
+    transition: all 0.15s; border: 1.5px solid transparent;
+  }
+  .folder-chip:hover { background: #333; color: #e4e4e7; border-color: #a3e635; }
+  .folder-chip-x {
+    font-size: 10px; color: #52525b; cursor: pointer; padding: 2px 3px;
+    border: none; background: none; font-family: inherit; line-height: 1; border-radius: 4px;
+  }
+  .folder-chip-x:hover { color: #ef4444; background: rgba(239,68,68,0.12); }
+  .folder-hint { font-size: 11px; color: #3f3f46; margin-top: 8px; }
+
+  .btn-start {
+    padding: 12px 48px; font-size: 15px; border-radius: 10px; border: none;
+    background: #a3e635; color: #141417; font-weight: 700;
+    cursor: pointer; font-family: inherit; transition: all 0.15s;
+  }
+  .btn-start:hover { background: #bef264; }
+  .btn-start:disabled { opacity: 0.35; cursor: default; }
+
+  /* ── Session ── */
+  .session-wrap {
+    display: flex; flex-direction: column; align-items: center;
+    width: 100%; max-width: 700px; flex: 1;
+  }
+  .round-info { font-size: 12px; color: #52525b; margin-bottom: 4px; }
+  .counter { font-size: 13px; color: #71717a; margin-bottom: 8px; font-variant-numeric: tabular-nums; }
+  .image-box {
+    flex: 1; width: 100%; display: flex; align-items: center;
+    justify-content: center; min-height: 200px; margin-bottom: 16px;
+  }
+  .image-box img { max-width: 100%; max-height: 65vh; object-fit: contain; border-radius: 8px; }
+  .timer-wrap {
+    position: relative; display: flex; align-items: center;
+    justify-content: center; margin-bottom: 16px;
+  }
+  .time-text {
+    position: absolute; font-size: 36px; font-weight: 700;
+    font-variant-numeric: tabular-nums; letter-spacing: 0.02em;
+  }
+
+  /* ── Finished ── */
+  .finished { text-align: center; margin-top: 60px; width: 100%; max-width: 600px; }
+  .finished-icon { font-size: 48px; margin-bottom: 16px; }
+  .finished-title { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+  .finished-sub { font-size: 14px; color: #71717a; margin-bottom: 24px; white-space: pre-line; }
+  .review-label { font-size: 12px; color: #71717a; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
+  .review-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 8px; margin-bottom: 32px;
+  }
+  .review-thumb {
+    aspect-ratio: 1; object-fit: cover; border-radius: 8px;
+    border: 2px solid transparent; cursor: pointer;
+    transition: border-color 0.15s, transform 0.15s; width: 100%;
+  }
+  .review-thumb:hover { border-color: #a3e635; transform: scale(1.03); }
+
+  .lightbox {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.9);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000; cursor: pointer;
+  }
+  .lightbox img { max-width: 90vw; max-height: 90vh; object-fit: contain; border-radius: 8px; }
+  .lightbox-counter {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    font-size: 13px; color: #71717a; font-variant-numeric: tabular-nums;
+  }
+
+  .countdown-overlay {
+    position: fixed; inset: 0; background: rgba(20,20,23,0.92);
+    display: flex; align-items: center; justify-content: center; z-index: 900;
+  }
+  .countdown-num {
+    font-size: 120px; font-weight: 700; color: #a3e635;
+    animation: countPop 0.6s ease-out; font-variant-numeric: tabular-nums;
+  }
+  @keyframes countPop {
+    0% { transform: scale(1.6); opacity: 0; }
+    40% { transform: scale(1); opacity: 1; }
+    100% { opacity: 1; }
+  }
+
+  .hidden { display: none !important; }
+  @media (min-height: 700px) { .image-box img { max-height: 70vh; } }
+</style>
+</head>
+<body>
+
+<div id="setup">
+  <h1>Croquis Timer</h1>
+  <div class="sub">クロッキー練習用タイマー</div>
+
+  <div class="card">
+    <div class="label">セッション設定</div>
+    <div class="round-list" id="roundList"></div>
+    <button class="btn btn-secondary" id="addRoundBtn">＋ 追加</button>
+    <div class="round-summary" id="roundSummary"></div>
+    <div style="margin-top:16px">
+      <div class="toggle-row">
+        <div class="toggle on" id="shuffleToggle"><div class="toggle-dot"></div></div>
+        <span class="toggle-label">シャッフル</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="label">画像</div>
+    <div class="dropzone" id="dropzone">
+      <div class="dropzone-icon">↓</div>
+      <div class="dropzone-text" id="dropzoneText">ドラッグ＆ドロップ、またはクリックで画像を追加</div>
+    </div>
+    <input type="file" id="fileInput" accept="image/*" multiple style="display:none">
+    <input type="file" id="folderInput" accept="image/*" multiple webkitdirectory directory style="display:none">
+    <div class="btn-row">
+      <button class="btn btn-primary" id="pickPhotosBtn">📷 画像を選択</button>
+      <button class="btn btn-secondary" id="folderBtn">フォルダ選択</button>
+      <button class="btn btn-secondary" id="registerFolderBtn">＋ フォルダ登録</button>
+      <button class="btn btn-danger hidden" id="clearBtn">全削除</button>
+    </div>
+    <div class="img-count" id="imgCount">画像をアップロードしてください</div>
+    <div class="thumbs" id="thumbs"></div>
+    <div class="folder-chips" id="folderChips"></div>
+    <div class="folder-hint" id="folderHint">「フォルダ登録」でワンクリック読み込み</div>
+  </div>
+
+  <button class="btn-start" id="startBtn" disabled>スタート</button>
+</div>
+
+<div id="session" class="hidden">
+  <div class="session-wrap">
+    <div class="round-info" id="roundInfo"></div>
+    <div class="counter" id="sessionCounter">1 / 1</div>
+    <div class="image-box"><img id="sessionImg" src="" alt=""></div>
+    <div class="timer-wrap">
+      <svg id="ring" width="220" height="220" style="transform:rotate(-90deg)">
+        <circle cx="110" cy="110" r="107" fill="none" stroke="#2a2a2f" stroke-width="6"/>
+        <circle id="ringProgress" cx="110" cy="110" r="107" fill="none"
+          stroke="#a3e635" stroke-width="6" stroke-linecap="round"
+          stroke-dasharray="672.34" stroke-dashoffset="0"
+          style="transition:stroke-dashoffset 0.3s linear, stroke 0.4s"/>
+      </svg>
+      <div class="time-text" id="timeText">1:00</div>
+    </div>
+    <div class="btn-row" style="justify-content:center">
+      <button class="btn btn-secondary" id="pauseBtn">⏸ 一時停止</button>
+      <button class="btn btn-secondary" id="skipBtn">⏭ スキップ</button>
+      <button class="btn btn-primary" id="doneBtn">✓ 完了</button>
+      <button class="btn btn-danger" id="stopBtn">✕ 終了</button>
+    </div>
+  </div>
+</div>
+
+<div id="finished" class="hidden">
+  <div class="finished">
+    <div class="finished-icon">✓</div>
+    <div class="finished-title">おつかれさま！</div>
+    <div class="finished-sub" id="finishedSub"></div>
+    <div class="review-label">今回描いた画像</div>
+    <div class="review-grid" id="reviewGrid"></div>
+    <button class="btn btn-primary" id="againBtn">もう一回</button>
+  </div>
+</div>
+
+<div class="countdown-overlay hidden" id="countdown">
+  <div class="countdown-num" id="countdownNum">5</div>
+</div>
+
+<div id="lightbox" class="lightbox hidden">
+  <img id="lightboxImg" src="" alt="">
+  <div class="lightbox-counter" id="lightboxCounter"></div>
+</div>
+
+<script>
+const TIME_OPTIONS = [
+  { label: "30秒", seconds: 30 },
+  { label: "1分",  seconds: 60 },
+  { label: "2分",  seconds: 120 },
+  { label: "3分",  seconds: 180 },
+  { label: "5分",  seconds: 300 },
+  { label: "10分", seconds: 600 },
+  { label: "20分", seconds: 1200 },
+];
+const DB_NAME = "croquis-timer";
+const DB_STORE = "folders";
+const ROUNDS_KEY = "croquis-rounds";
+
+let rounds = loadRounds();
+let images = [];
+let schedule = [];
+let schedIdx = 0;
+let remaining = 0;
+let running = false;
+let paused = false;
+let shuffled = true;
+let shownIndices = [];
+let tickInterval = null;
+
+let audioCtx = null;
+function getAudioCtx() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); return audioCtx; }
+function beep(freq=880,dur=0.12,vol=0.25){try{const c=getAudioCtx(),o=c.createOscillator(),g=c.createGain();o.type="sine";o.frequency.value=freq;g.gain.value=vol;o.connect(g);g.connect(c.destination);g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+dur);o.start(c.currentTime);o.stop(c.currentTime+dur)}catch{}}
+function soundWarn(){beep(660,0.15,0.2)} function soundTick(){beep(880,0.1,0.3)} function soundDone(){beep(1100,0.25,0.35);setTimeout(()=>beep(880,0.25,0.35),280)}
+
+function shuffleArr(a){const b=[...a];for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]]}return b}
+function fmt(s){const sec=Math.max(0,s),m=Math.floor(sec/60),ss=sec%60;return`${m}:${String(ss).padStart(2,"0")}`}
+function timeLabel(sec){const o=TIME_OPTIONS.find(o=>o.seconds===sec);return o?o.label:fmt(sec)}
+
+function loadRounds(){try{const s=localStorage.getItem(ROUNDS_KEY);if(s){const a=JSON.parse(s);if(Array.isArray(a)&&a.length)return a}}catch{}return[{seconds:30,count:5},{seconds:60,count:5}]}
+function saveRounds(){localStorage.setItem(ROUNDS_KEY,JSON.stringify(rounds))}
+
+/* ── DOM ── */
+const $setup=document.getElementById("setup"),$session=document.getElementById("session"),$finished=document.getElementById("finished");
+const $roundList=document.getElementById("roundList"),$addRoundBtn=document.getElementById("addRoundBtn"),$roundSummary=document.getElementById("roundSummary");
+const $shuffleTog=document.getElementById("shuffleToggle");
+const $dropzone=document.getElementById("dropzone"),$fileInput=document.getElementById("fileInput"),$folderInput=document.getElementById("folderInput");
+const $folderBtn=document.getElementById("folderBtn"),$registerFolderBtn=document.getElementById("registerFolderBtn");
+const $pickPhotosBtn=document.getElementById("pickPhotosBtn");
+const $dropzoneText=document.getElementById("dropzoneText");
+const $clearBtn=document.getElementById("clearBtn"),$imgCount=document.getElementById("imgCount"),$thumbs=document.getElementById("thumbs");
+const $startBtn=document.getElementById("startBtn"),$folderChips=document.getElementById("folderChips"),$folderHint=document.getElementById("folderHint");
+const $roundInfo=document.getElementById("roundInfo"),$counter=document.getElementById("sessionCounter");
+const $sessionImg=document.getElementById("sessionImg"),$ringProg=document.getElementById("ringProgress");
+const $timeText=document.getElementById("timeText"),$pauseBtn=document.getElementById("pauseBtn");
+const $skipBtn=document.getElementById("skipBtn"),$doneBtn=document.getElementById("doneBtn"),$stopBtn=document.getElementById("stopBtn");
+const $finSub=document.getElementById("finishedSub"),$reviewGrid=document.getElementById("reviewGrid"),$againBtn=document.getElementById("againBtn");
+const $lightbox=document.getElementById("lightbox"),$lightboxImg=document.getElementById("lightboxImg"),$lightboxCtr=document.getElementById("lightboxCounter");
+let lightboxList=[],lightboxIdx=0;
+const RING_R=107,RING_CIRC=2*Math.PI*RING_R;
+$ringProg.setAttribute("stroke-dasharray",RING_CIRC.toString());
+const $countdown=document.getElementById("countdown"),$countdownNum=document.getElementById("countdownNum");
+
+function showPhase(n){$setup.classList.toggle("hidden",n!=="setup");$session.classList.toggle("hidden",n!=="session");$finished.classList.toggle("hidden",n!=="finished")}
+
+/* ══════════════════════════════════════════
+   Rounds Builder
+   ══════════════════════════════════════════ */
+function renderRounds() {
+  $roundList.innerHTML = "";
+  rounds.sort((a, b) => a.seconds - b.seconds);
+
+  rounds.forEach((r, i) => {
+    const row = document.createElement("div");
+    row.className = "round-row";
+
+    const sel = document.createElement("select");
+    sel.className = "round-time";
+    TIME_OPTIONS.forEach(opt => {
+      const o = document.createElement("option");
+      o.value = opt.seconds;
+      o.textContent = opt.label;
+      if (opt.seconds === r.seconds) o.selected = true;
+      sel.appendChild(o);
+    });
+    sel.addEventListener("change", () => { rounds[i].seconds = +sel.value; saveRounds(); renderRounds(); });
+
+    const x = document.createElement("span");
+    x.className = "round-x";
+    x.textContent = "×";
+
+    const ci = document.createElement("input");
+    ci.type = "number"; ci.className = "round-count"; ci.min = 1; ci.value = r.count;
+    ci.addEventListener("change", () => { const v = parseInt(ci.value); rounds[i].count = isNaN(v)||v<1?1:v; ci.value = rounds[i].count; saveRounds(); updateSummary(); });
+
+    const u = document.createElement("span");
+    u.className = "round-unit"; u.textContent = "枚";
+
+    const del = document.createElement("button");
+    del.className = "round-del"; del.textContent = "✕";
+    del.addEventListener("click", () => { if (rounds.length <= 1) return; rounds.splice(i, 1); saveRounds(); renderRounds(); });
+
+    row.append(sel, x, ci, u, del);
+    $roundList.appendChild(row);
+  });
+  updateSummary();
+}
+
+function updateSummary() {
+  const total = rounds.reduce((s, r) => s + r.count, 0);
+  const sec = rounds.reduce((s, r) => s + r.seconds * r.count, 0);
+  const m = Math.floor(sec / 60), ss = sec % 60;
+  $roundSummary.textContent = `計 ${total}枚 ・ 約${m}分${ss > 0 ? ss + "秒" : ""}`;
+  $startBtn.disabled = images.length === 0;
+}
+
+$addRoundBtn.addEventListener("click", () => { rounds.push({ seconds: 60, count: 5 }); saveRounds(); renderRounds(); });
+renderRounds();
+
+$shuffleTog.addEventListener("click", () => { shuffled = !shuffled; $shuffleTog.classList.toggle("on", shuffled); });
+
+/* ══════════════════════════════════════════
+   Images
+   ══════════════════════════════════════════ */
+function processFiles(fileList) {
+  const valid = Array.from(fileList).filter(f => f.type.startsWith("image/"));
+  if (!valid.length) return;
+  let loaded = 0;
+  const newImgs = [];
+  valid.forEach(f => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      newImgs.push({ name: f.name, src: e.target.result });
+      if (++loaded === valid.length) { images = images.concat(newImgs); updateImageUI(); }
+    };
+    reader.readAsDataURL(f);
+  });
+}
+
+function updateImageUI() {
+  $imgCount.textContent = images.length > 0 ? `${images.length} 枚の画像` : "画像をアップロードしてください";
+  $clearBtn.classList.toggle("hidden", images.length === 0);
+  $startBtn.disabled = images.length === 0;
+  $thumbs.innerHTML = "";
+  images.slice(0, 20).forEach(img => { const el = document.createElement("img"); el.src = img.src; el.className = "thumb"; $thumbs.appendChild(el); });
+  if (images.length > 20) { const m = document.createElement("div"); m.className = "thumb-more"; m.textContent = `+${images.length - 20}`; $thumbs.appendChild(m); }
+}
+
+$dropzone.addEventListener("dragover", e => { e.preventDefault(); $dropzone.classList.add("dragover"); });
+$dropzone.addEventListener("dragleave", () => $dropzone.classList.remove("dragover"));
+$dropzone.addEventListener("drop", e => { e.preventDefault(); $dropzone.classList.remove("dragover"); processFiles(e.dataTransfer.files); });
+$dropzone.addEventListener("click", () => $fileInput.click());
+$fileInput.addEventListener("change", e => { processFiles(e.target.files); e.target.value = ""; });
+$folderBtn.addEventListener("click", () => $folderInput.click());
+$folderInput.addEventListener("change", e => { processFiles(e.target.files); e.target.value = ""; });
+$clearBtn.addEventListener("click", () => { images = []; updateImageUI(); });
+$pickPhotosBtn.addEventListener("click", () => $fileInput.click());
+
+/* ── iOS / iPadOS detection & UI adaptation ── */
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+  (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+if (isIOS) {
+  $dropzoneText.textContent = "タップして写真を選択";
+  $dropzone.querySelector(".dropzone-icon").textContent = "📷";
+  $folderBtn.style.display = "none";
+  $registerFolderBtn.style.display = "none";
+  $folderChips.style.display = "none";
+  $folderHint.style.display = "none";
+} else if (!window.showDirectoryPicker) {
+  // Browsers without File System Access API (e.g. Firefox)
+  $registerFolderBtn.style.display = "none";
+  $folderHint.style.display = "none";
+}
+
+/* ══════════════════════════════════════════
+   Saved Folders
+   ══════════════════════════════════════════ */
+function openDB(){return new Promise((res,rej)=>{const r=indexedDB.open(DB_NAME,1);r.onupgradeneeded=()=>{if(!r.result.objectStoreNames.contains(DB_STORE))r.result.createObjectStore(DB_STORE,{keyPath:"name"})};r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
+async function getSavedFolders(){const db=await openDB();return new Promise((res,rej)=>{const r=db.transaction(DB_STORE,"readonly").objectStore(DB_STORE).getAll();r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
+async function saveFolder(n,h){const db=await openDB();return new Promise((res,rej)=>{const t=db.transaction(DB_STORE,"readwrite");t.objectStore(DB_STORE).put({name:n,handle:h});t.oncomplete=()=>res();t.onerror=()=>rej(t.error)})}
+async function deleteSavedFolder(n){const db=await openDB();return new Promise((res,rej)=>{const t=db.transaction(DB_STORE,"readwrite");t.objectStore(DB_STORE).delete(n);t.oncomplete=()=>res();t.onerror=()=>rej(t.error)})}
+
+async function loadImagesFromHandle(handle) {
+  const imgs = [];
+  for await (const entry of handle.values()) {
+    if (entry.kind === "file" && /\.(jpe?g|png|gif|webp|bmp)$/i.test(entry.name)) {
+      try { const f = await entry.getFile(); imgs.push({ name: entry.name, src: URL.createObjectURL(f) }); } catch {}
+    }
+  }
+  imgs.sort((a, b) => a.name.localeCompare(b.name));
+  return imgs;
+}
+
+async function registerFolder() {
+  if (!window.showDirectoryPicker) { alert("Chrome または Edge を使ってください。"); return; }
+  try {
+    const handle = await window.showDirectoryPicker({ mode: "read" });
+    await saveFolder(handle.name, handle);
+    renderFolderChips();
+    await restoreFolder(handle.name);
+  } catch (e) { if (e.name !== "AbortError") console.error(e); }
+}
+
+async function restoreFolder(name) {
+  const folders = await getSavedFolders();
+  const entry = folders.find(f => f.name === name);
+  if (!entry) return;
+  const perm = await entry.handle.requestPermission({ mode: "read" });
+  if (perm !== "granted") { alert("フォルダへのアクセスが許可されませんでした。"); return; }
+  $imgCount.textContent = "読み込み中...";
+  const imgs = await loadImagesFromHandle(entry.handle);
+  if (!imgs.length) { $imgCount.textContent = "画像が見つかりませんでした"; return; }
+  images = imgs;
+  updateImageUI();
+}
+
+async function renderFolderChips() {
+  let folders = [];
+  try { folders = await getSavedFolders(); } catch {}
+  $folderChips.innerHTML = "";
+  $folderHint.style.display = folders.length === 0 ? "" : "none";
+  folders.forEach(f => {
+    const chip = document.createElement("div"); chip.className = "folder-chip";
+    const icon = document.createElement("span"); icon.textContent = "📁";
+    const label = document.createElement("span"); label.textContent = f.name; label.style.cursor = "pointer";
+    const xBtn = document.createElement("button"); xBtn.className = "folder-chip-x"; xBtn.textContent = "✕";
+    xBtn.addEventListener("click", async e => { e.stopPropagation(); await deleteSavedFolder(f.name); renderFolderChips(); });
+    chip.addEventListener("click", () => restoreFolder(f.name));
+    chip.append(icon, label, xBtn);
+    $folderChips.appendChild(chip);
+  });
+}
+$registerFolderBtn.addEventListener("click", registerFolder);
+renderFolderChips();
+
+/* ══════════════════════════════════════════
+   Build Schedule
+   ══════════════════════════════════════════ */
+function buildSchedule() {
+  const sorted = [...rounds].sort((a, b) => a.seconds - b.seconds);
+  const pool = images.map((_, i) => i);
+  const order = shuffled ? shuffleArr(pool) : pool;
+  const sched = [];
+  let cursor = 0;
+  for (const round of sorted) {
+    for (let i = 0; i < round.count; i++) {
+      if (cursor >= order.length) cursor = 0;
+      sched.push({ imgIdx: order[cursor], duration: round.seconds });
+      cursor++;
+    }
+  }
+  return sched;
+}
+
+/* ══════════════════════════════════════════
+   Session
+   ══════════════════════════════════════════ */
+function curDur() { return schedule[schedIdx]?.duration || 60; }
+
+function updateRing() {
+  const d = curDur(), rem = Math.max(0, remaining);
+  const offset = RING_CIRC * (1 - (d > 0 ? rem / d : 1));
+  $ringProg.setAttribute("stroke-dashoffset", offset.toString());
+  const color = rem <= 3 ? "#ef4444" : rem <= 10 ? "#f59e0b" : "#a3e635";
+  $ringProg.setAttribute("stroke", color);
+  $timeText.style.color = rem <= 3 ? "#ef4444" : rem <= 10 ? "#f59e0b" : "#e4e4e7";
+  $timeText.textContent = fmt(rem);
+}
+
+function showCurrentImage() {
+  if (schedIdx < schedule.length) {
+    const e = schedule[schedIdx];
+    $sessionImg.src = images[e.imgIdx].src;
+    $sessionImg.style.display = "";
+    shownIndices.push(e.imgIdx);
+  } else {
+    $sessionImg.style.display = "none";
+  }
+  $counter.textContent = `${schedIdx + 1} / ${schedule.length}`;
+  $roundInfo.textContent = timeLabel(curDur());
+}
+
+function tick() {
+  remaining--;
+  if (remaining === 10) soundWarn();
+  if (remaining >= 1 && remaining <= 3) soundTick();
+  if (remaining === 0) soundDone();
+  if (remaining < 0) {
+    if (schedIdx + 1 >= schedule.length) { stopSession(); showFinished(); return; }
+    schedIdx++;
+    remaining = curDur();
+    showCurrentImage();
+  }
+  updateRing();
+}
+
+function runCountdown() {
+  return new Promise(resolve => {
+    let c = 5;
+    $countdown.classList.remove("hidden");
+    $countdownNum.textContent = c;
+    beep(440, 0.08, 0.15);
+    const iv = setInterval(() => {
+      c--;
+      if (c <= 0) { clearInterval(iv); $countdown.classList.add("hidden"); resolve(); }
+      else { $countdownNum.textContent = c; $countdownNum.style.animation = "none"; $countdownNum.offsetHeight; $countdownNum.style.animation = ""; beep(440 + (5-c)*80, 0.08, 0.15); }
+    }, 1000);
+  });
+}
+
+async function startSession() {
+  if (!images.length) return;
+  schedule = buildSchedule();
+  schedIdx = 0;
+  remaining = curDur();
+  running = true; paused = false; shownIndices = [];
+  showPhase("session");
+  showCurrentImage();
+  updateRing();
+  $pauseBtn.textContent = "⏸ 一時停止";
+  await runCountdown();
+  if (!running) return;
+  tickInterval = setInterval(tick, 1000);
+}
+
+function pauseToggle() {
+  paused = !paused;
+  $pauseBtn.textContent = paused ? "▶ 再開" : "⏸ 一時停止";
+  if (paused) clearInterval(tickInterval);
+  else tickInterval = setInterval(tick, 1000);
+}
+
+function skipImage() {
+  // Remove the current slot's entry (last pushed)
+  shownIndices.pop();
+
+  // Add a replacement with the same duration
+  const e = schedule[schedIdx];
+  const usedSet = new Set(schedule.map(s => s.imgIdx));
+  let candidates = images.map((_, i) => i).filter(i => !usedSet.has(i));
+  if (candidates.length === 0) candidates = images.map((_, i) => i);
+  const pick = candidates[Math.floor(Math.random() * candidates.length)];
+  schedule.push({ imgIdx: pick, duration: e.duration });
+
+  if (schedIdx + 1 >= schedule.length) { stopSession(); showFinished(); }
+  else { schedIdx++; remaining = curDur(); showCurrentImage(); updateRing(); }
+}
+
+function doneImage() {
+  // Current image stays in shownIndices (it was drawn), just advance
+  if (schedIdx + 1 >= schedule.length) { stopSession(); showFinished(); }
+  else { schedIdx++; remaining = curDur(); showCurrentImage(); updateRing(); }
+}
+
+function stopSession() { running = false; paused = false; clearInterval(tickInterval); tickInterval = null; }
+
+function showFinished() {
+  const sorted = [...rounds].sort((a, b) => a.seconds - b.seconds);
+  $finSub.textContent = sorted.map(r => `${timeLabel(r.seconds)} × ${r.count}枚`).join("\n") + "\n完了";
+  $reviewGrid.innerHTML = "";
+  lightboxList = shownIndices.map(i => images[i].src);
+  shownIndices.forEach((imgIdx, i) => {
+    const t = document.createElement("img"); t.src = images[imgIdx].src;
+    t.className = "review-thumb"; t.addEventListener("click", () => openLightbox(i));
+    $reviewGrid.appendChild(t);
+  });
+  showPhase("finished");
+}
+
+function openLightbox(i) { lightboxIdx = i; $lightboxImg.src = lightboxList[i]; $lightboxCtr.textContent = `${i+1} / ${lightboxList.length}`; $lightbox.classList.remove("hidden"); }
+function closeLightbox() { $lightbox.classList.add("hidden"); }
+$lightbox.addEventListener("click", e => { if (e.target === $lightboxImg) { if (lightboxIdx < lightboxList.length - 1) openLightbox(lightboxIdx + 1); else closeLightbox(); } else closeLightbox(); });
+
+$startBtn.addEventListener("click", startSession);
+$pauseBtn.addEventListener("click", pauseToggle);
+$skipBtn.addEventListener("click", skipImage);
+$doneBtn.addEventListener("click", doneImage);
+$stopBtn.addEventListener("click", () => { stopSession(); if (shownIndices.length > 0) showFinished(); else { schedIdx = 0; showPhase("setup"); } });
+$againBtn.addEventListener("click", () => { schedIdx = 0; showPhase("setup"); });
+
+document.addEventListener("keydown", e => {
+  if (!$lightbox.classList.contains("hidden")) {
+    if (e.code === "Escape") { e.preventDefault(); closeLightbox(); }
+    if (e.code === "ArrowRight") { e.preventDefault(); if (lightboxIdx < lightboxList.length - 1) openLightbox(lightboxIdx + 1); }
+    if (e.code === "ArrowLeft") { e.preventDefault(); if (lightboxIdx > 0) openLightbox(lightboxIdx - 1); }
+    return;
+  }
+  if (!running) return;
+  if (e.code === "Space") { e.preventDefault(); pauseToggle(); }
+  if (e.code === "ArrowRight") { e.preventDefault(); skipImage(); }
+  if (e.code === "Enter") { e.preventDefault(); doneImage(); }
+  if (e.code === "Escape") { e.preventDefault(); stopSession(); if (shownIndices.length > 0) showFinished(); else { schedIdx = 0; showPhase("setup"); } }
+});
+</script>
+</body>
+</html>
